@@ -33,6 +33,187 @@ Widget _error(Object? err, VoidCallback reload) => Center(child: Padding(
 void _message(BuildContext context, String text) => ScaffoldMessenger.of(context)
     .showSnackBar(SnackBar(content: Text(text)));
 
+class DashboardTab extends StatefulWidget {
+  final ValueChanged<int> onNavigate;
+  const DashboardTab({super.key, required this.onNavigate});
+  @override State<DashboardTab> createState() => _DashboardTabState();
+}
+
+class _DashboardTabState extends State<DashboardTab> {
+  late Future<(Map<String,dynamic>, List<Map<String,dynamic>>, Map<String,dynamic>)> _future;
+  Future<(List<Map<String,dynamic>>, Map<String,dynamic>?)>? _care;
+  String? _selectedPet;
+
+  @override void initState(){super.initState();_reload();}
+
+  void _reload() => setState(() => _future = _load());
+
+  Future<(Map<String,dynamic>, List<Map<String,dynamic>>, Map<String,dynamic>)> _load() async {
+    final user = await _repo.me();
+    final pets = await _repo.myPets();
+    final adherence = await _repo.adherence();
+    if (pets.isNotEmpty) {
+      final selected = pets.any((pet) => _s(pet['petId']) == _selectedPet)
+          ? _selectedPet!
+          : _s(pets.first['petId']);
+      _selectedPet = selected;
+      _care = _loadCare(selected);
+    }
+    return (user,pets,adherence);
+  }
+
+  Future<(List<Map<String,dynamic>>, Map<String,dynamic>?)> _loadCare(String petId) async {
+    final plans = await _repo.medicationPlans(petId);
+    final food = await _repo.activeFeedingPlan(petId);
+    return (plans,food);
+  }
+
+  String _greeting(Map<String,dynamic> user) {
+    final name = _s(user['name']).trim();
+    if (name.isNotEmpty) return name.split(' ').first;
+    final email = _s(user['email']);
+    return email.isEmpty ? 'Hola' : email.split('@').first;
+  }
+
+  Widget _heading(String title,{String? action,VoidCallback? onTap}) => Row(
+    mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
+      Text(title,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+      if(action!=null) TextButton(onPressed:onTap,child:Text(action,style:const TextStyle(color:Color(0xFF128C82)))),
+    ]);
+
+  Widget _petSelector(List<Map<String,dynamic>> pets) {
+    return Container(padding:const EdgeInsets.symmetric(horizontal:16,vertical:8),
+      decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22)),
+      child:DropdownButtonHideUnderline(child:DropdownButton<String>(value:_selectedPet,isExpanded:true,
+        icon:const CircleAvatar(radius:20,backgroundColor:Color(0xFFEAF2FF),
+          child:Icon(Icons.keyboard_arrow_down,color:Color(0xFF52606D))),
+        selectedItemBuilder:(context)=>pets.map((pet)=>Row(children:[
+          const CircleAvatar(radius:23,backgroundColor:Color(0xFFE8F7F6),child:Icon(Icons.pets,color:Color(0xFF139D91))),
+          const SizedBox(width:12),Expanded(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Row(children:[Text(_s(pet['name']),style:const TextStyle(fontSize:17,fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+              const SizedBox(width:8),Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:3),
+                decoration:BoxDecoration(color:const Color(0xFFFFF2D6),borderRadius:BorderRadius.circular(12)),
+                child:const Text('En cuidado',style:TextStyle(fontSize:11,color:Color(0xFF9A6200))))]),
+            Text(_s(pet['breed']).isEmpty?_s(pet['species']):_s(pet['breed']),
+              style:const TextStyle(fontSize:12,color:Color(0xFF667085))),
+          ])),
+        ])).toList(),
+        items:pets.map((pet)=>DropdownMenuItem(value:_s(pet['petId']),child:Text(_s(pet['name'])))).toList(),
+        onChanged:(value){
+          if(value==null) { return; }
+          setState((){_selectedPet=value;_care=_loadCare(value);});
+        })),
+    );
+  }
+
+  Widget _careSection() => FutureBuilder<(List<Map<String,dynamic>>, Map<String,dynamic>?)>(
+    future:_care,builder:(context,snapshot){
+      if(snapshot.connectionState!=ConnectionState.done) {
+        return const Center(child:Padding(padding:EdgeInsets.all(24),child:CircularProgressIndicator()));
+      }
+      if(snapshot.hasError) { return _error(snapshot.error,_reload); }
+      final plans=snapshot.data?.$1??[];
+      final food=snapshot.data?.$2;
+      final count=plans.length+(food==null?0:1);
+      return Column(children:[
+        _heading('Cuidados de hoy',action:'Ver plan ›',onTap:()=>widget.onNavigate(3)),
+        Align(alignment:Alignment.centerLeft,child:Text('$count cuidados activos',
+          style:const TextStyle(fontSize:12,color:Color(0xFF667085)))),
+        const SizedBox(height:10),
+        if(plans.isEmpty&&food==null) _emptyCare(),
+        if(plans.isNotEmpty) _careCard(icon:Icons.medication_outlined,color:const Color(0xFFF4A000),
+          type:'MEDICACIÓN',title:_s(plans.first['medicationName']),subtitle:'Tratamiento activo',
+          action:'Ver dosis',onTap:()=>widget.onNavigate(3)),
+        if(food!=null) _careCard(icon:Icons.restaurant_outlined,color:const Color(0xFF2563EB),
+          type:'ALIMENTACIÓN',title:_s(food['foodName']),subtitle:_s(food['recommendations']),
+          action:'Ver plan',onTap:()=>widget.onNavigate(3)),
+      ]);
+    });
+
+  Widget _careCard({required IconData icon,required Color color,required String type,required String title,
+      required String subtitle,required String action,required VoidCallback onTap}) => Container(
+    margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(16),
+    decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22),
+      border:Border(left:BorderSide(color:color,width:5))),
+    child:Row(children:[CircleAvatar(backgroundColor:color.withValues(alpha:0.12),child:Icon(icon,color:color)),
+      const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(type,style:const TextStyle(fontSize:11,color:Color(0xFF667085))),
+        Text(title.isEmpty?'Cuidado activo':title,style:const TextStyle(fontSize:16,fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+        if(subtitle.isNotEmpty) Text(subtitle,maxLines:2,overflow:TextOverflow.ellipsis,
+          style:const TextStyle(fontSize:12,color:Color(0xFF667085))),
+      ])),TextButton(onPressed:onTap,child:Text(action))]));
+
+  Widget _emptyCare() => Container(width:double.infinity,padding:const EdgeInsets.all(20),
+    decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22)),
+    child:const Column(children:[Icon(Icons.check_circle_outline,color:Color(0xFF1DB9A9),size:34),
+      SizedBox(height:8),Text('No hay cuidados activos para esta mascota',textAlign:TextAlign.center)]));
+
+  Widget _appointmentSection() => Column(children:[
+    _heading('Próxima cita',action:'Ver citas',onTap:()=>widget.onNavigate(2)),
+    Container(width:double.infinity,padding:const EdgeInsets.all(18),
+      decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22)),
+      child:Row(children:[const CircleAvatar(backgroundColor:Color(0xFFEAF2FF),
+        child:Icon(Icons.calendar_month_outlined,color:Color(0xFF2563EB))),const SizedBox(width:12),
+        const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text('Consulta tus próximas citas',style:TextStyle(fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+          SizedBox(height:4),Text('La agenda está disponible en la sección Citas.',style:TextStyle(fontSize:12,color:Color(0xFF667085))),
+        ])),IconButton(onPressed:()=>widget.onNavigate(2),icon:const Icon(Icons.chevron_right))])),
+  ]);
+
+  Widget _adherence(Map<String,dynamic> data) {
+    final score=double.tryParse(_s(data['score']))??0;
+    final progress=(score/100).clamp(0.0,1.0);
+    final level=_s(data['level']).isEmpty?'Aún sin evaluar':_s(data['level']);
+    return Column(children:[_heading('Tu constancia'),Container(width:double.infinity,padding:const EdgeInsets.all(18),
+      decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22)),child:Column(children:[
+        Row(children:[const CircleAvatar(backgroundColor:Color(0xFFFFF5DC),
+          child:Icon(Icons.workspace_premium_outlined,color:Color(0xFFE39400))),const SizedBox(width:12),
+          Expanded(child:Text('Nivel $level',style:const TextStyle(fontSize:18,fontWeight:FontWeight.w700,color:Color(0xFF14213D)))),
+          Text('${score.toStringAsFixed(0)}%',style:const TextStyle(color:Color(0xFF128C82)))]),
+        const SizedBox(height:14),ClipRRect(borderRadius:BorderRadius.circular(8),
+          child:LinearProgressIndicator(value:progress,minHeight:8,backgroundColor:const Color(0xFFE8F0FD),
+            color:const Color(0xFF1DB9A9))),
+        const SizedBox(height:10),Align(alignment:Alignment.centerLeft,
+          child:Text('Evidencias registradas: ${_s(data['evidenceCount'])}',style:const TextStyle(fontSize:12,color:Color(0xFF667085)))),
+      ]))]);
+  }
+
+  Widget _quickActions() => Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    const Text('Accesos rápidos',style:TextStyle(fontSize:20,fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+    const SizedBox(height:12),Row(children:[
+      Expanded(child:_quick(Icons.pets_outlined,'Mis mascotas',1)),const SizedBox(width:10),
+      Expanded(child:_quick(Icons.calendar_month_outlined,'Agendar cita',2)),const SizedBox(width:10),
+      Expanded(child:_quick(Icons.check_circle_outline,'Ver cuidados',3)),
+    ])]);
+
+  Widget _quick(IconData icon,String label,int index) => InkWell(onTap:()=>widget.onNavigate(index),
+    borderRadius:BorderRadius.circular(18),child:Container(padding:const EdgeInsets.symmetric(vertical:16,horizontal:6),
+      decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18)),
+      child:Column(children:[CircleAvatar(backgroundColor:const Color(0xFFEAF2FF),
+        child:Icon(icon,color:const Color(0xFF2563EB))),const SizedBox(height:8),Text(label,textAlign:TextAlign.center,
+          style:const TextStyle(fontSize:12,color:Color(0xFF344054)))])));
+
+  @override Widget build(BuildContext context) => Scaffold(backgroundColor:const Color(0xFFF7F9FF),
+    appBar:AppBar(centerTitle:true,title:const Text('Inicio',style:TextStyle(fontWeight:FontWeight.w700)),
+      backgroundColor:const Color(0xFFF7F9FF),foregroundColor:const Color(0xFF14213D),surfaceTintColor:Colors.transparent,
+      actions:[IconButton(onPressed:_reload,icon:const Icon(Icons.refresh))]),
+    body:SafeArea(child:FutureBuilder(future:_future,builder:(context,snapshot){
+      if(snapshot.connectionState!=ConnectionState.done)return const Center(child:CircularProgressIndicator());
+      if(snapshot.hasError)return _error(snapshot.error,_reload);
+      final data=snapshot.data!;
+      return RefreshIndicator(onRefresh:() async=>_reload(),child:ListView(
+        physics:const AlwaysScrollableScrollPhysics(),padding:const EdgeInsets.fromLTRB(16,8,16,28),children:[
+          Text('Hola, ${_greeting(data.$1)} 👋',style:const TextStyle(fontSize:25,fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+          const SizedBox(height:4),const Text('Así va el cuidado de tus mascotas hoy.',style:TextStyle(color:Color(0xFF667085))),
+          const SizedBox(height:22),
+          if(data.$2.isEmpty) _emptyCare() else _petSelector(data.$2),
+          if(data.$2.isNotEmpty)...[const SizedBox(height:18),_careSection()],
+          const SizedBox(height:14),_appointmentSection(),const SizedBox(height:14),
+          _adherence(data.$3),const SizedBox(height:24),_quickActions(),
+        ]));
+    })));
+}
+
 class PetsTab extends StatefulWidget {
   const PetsTab({super.key});
   @override State<PetsTab> createState() => _PetsTabState();

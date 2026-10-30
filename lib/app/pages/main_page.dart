@@ -18,14 +18,13 @@ class _MainPageState extends State<MainPage> {
     _controller = PersistentTabController(initialIndex: 0);
   }
  
-  // Pantallas en blanco — cada equipo las completa
   List<Widget> _buildScreens() {
-    return const [
-      PetsTab(),
-      ClinicsTab(),
-      TreatmentsTab(),
-      AdherenceTab(),
-      ProfileTab(),
+    return [
+      DashboardTab(onNavigate: _controller.jumpToTab),
+      const PetsTab(),
+      const ClinicsTab(),
+      const TreatmentsTab(),
+      const ProfileTab(),
     ];
   }
  
@@ -34,36 +33,36 @@ class _MainPageState extends State<MainPage> {
       PersistentBottomNavBarItem(
         icon: const Icon(Icons.home_outlined),
         inactiveIcon: const Icon(Icons.home),
-        title: 'Home',
-        activeColorPrimary: const Color(0xFF2563EB),
+        title: 'Inicio',
+        activeColorPrimary: const Color(0xFF1DB9A9),
         inactiveColorPrimary: const Color(0xFF6B7280),
       ),
       PersistentBottomNavBarItem(
-        icon: const Icon(Icons.search_outlined),
-        inactiveIcon: const Icon(Icons.search),
-        title: 'Search',
-        activeColorPrimary: const Color(0xFF2563EB),
+        icon: const Icon(Icons.pets_outlined),
+        inactiveIcon: const Icon(Icons.pets),
+        title: 'Mascotas',
+        activeColorPrimary: const Color(0xFF1DB9A9),
         inactiveColorPrimary: const Color(0xFF6B7280),
       ),
       PersistentBottomNavBarItem(
-        icon: const Icon(Icons.pending_outlined),
-        inactiveIcon: const Icon(Icons.pending),
-        title: 'Process',
-        activeColorPrimary: const Color(0xFF2563EB),
+        icon: const Icon(Icons.calendar_month_outlined),
+        inactiveIcon: const Icon(Icons.calendar_month),
+        title: 'Citas',
+        activeColorPrimary: const Color(0xFF1DB9A9),
         inactiveColorPrimary: const Color(0xFF6B7280),
       ),
       PersistentBottomNavBarItem(
-        icon: const Icon(Icons.card_giftcard_outlined),
-        inactiveIcon: const Icon(Icons.card_giftcard),
-        title: 'Rewards',
-        activeColorPrimary: const Color(0xFF2563EB),
+        icon: const Icon(Icons.medical_services_outlined),
+        inactiveIcon: const Icon(Icons.medical_services),
+        title: 'Cuidados',
+        activeColorPrimary: const Color(0xFF1DB9A9),
         inactiveColorPrimary: const Color(0xFF6B7280),
       ),
       PersistentBottomNavBarItem(
         icon: const Icon(Icons.person_outline),
         inactiveIcon: const Icon(Icons.person),
-        title: 'Profile',
-        activeColorPrimary: const Color(0xFF2563EB),
+        title: 'Perfil',
+        activeColorPrimary: const Color(0xFF1DB9A9),
         inactiveColorPrimary: const Color(0xFF6B7280),
       ),
     ];
