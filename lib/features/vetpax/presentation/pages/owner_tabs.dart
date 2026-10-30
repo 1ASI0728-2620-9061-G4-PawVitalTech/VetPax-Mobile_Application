@@ -215,21 +215,39 @@ class _TreatmentsTabState extends State<TreatmentsTab> {
   String? _selected;
   @override void initState(){super.initState(); _reload();}
   void _reload() => setState(() => _pets = _repo.myPets());
-  @override Widget build(BuildContext context) => _page('Cuidados', FutureBuilder(
-    future: _pets, builder: (context, snapshot) {
+  @override Widget build(BuildContext context) => Scaffold(
+    backgroundColor: const Color(0xFFF7F9FF),
+    appBar: AppBar(centerTitle: true, title: const Text('Cuidados',
+      style: TextStyle(fontWeight: FontWeight.w700)), backgroundColor: const Color(0xFFF7F9FF),
+      foregroundColor: const Color(0xFF14213D), surfaceTintColor: Colors.transparent,
+      actions: [IconButton(onPressed: _reload, icon: const Icon(Icons.refresh))]),
+    body: SafeArea(child: FutureBuilder(future: _pets, builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
       if (snapshot.hasError) return _error(snapshot.error,_reload);
       final pets = snapshot.data ?? [];
       if (pets.isEmpty) return const Center(child: Text('Registra una mascota para ver sus cuidados.'));
-      final selected = pets.any((p) => p['petId'] == _selected) ? _selected! : _s(pets.first['petId']);
+      final selected = pets.any((p) => _s(p['petId']) == _selected) ? _selected! : _s(pets.first['petId']);
       return Column(children: [
-        Padding(padding: const EdgeInsets.all(16), child: DropdownButtonFormField<String>(
-          initialValue: selected, decoration: const InputDecoration(labelText:'Mascota', border: OutlineInputBorder()),
-          items: pets.map((p) => DropdownMenuItem(value:_s(p['petId']),child: Text(_s(p['name'])))).toList(),
-          onChanged: (v) => setState(() => _selected = v))),
-        Expanded(child: _PetTreatments(key: ValueKey(selected), petId: selected)),
+        Padding(padding: const EdgeInsets.fromLTRB(16,8,16,12), child: Container(
+          padding: const EdgeInsets.symmetric(horizontal:14,vertical:4),
+          decoration: BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22)),
+          child: DropdownButtonHideUnderline(child: DropdownButton<String>(value:selected,isExpanded:true,
+            icon: const Icon(Icons.keyboard_arrow_down),
+            items:pets.map((p)=>DropdownMenuItem(value:_s(p['petId']),child:Row(children:[
+              const CircleAvatar(radius:20,backgroundColor:Color(0xFFE8F7F6),
+                child:Icon(Icons.pets,color:Color(0xFF139D91))),
+              const SizedBox(width:10),
+              Expanded(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Text(_s(p['name']),style:const TextStyle(fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+                Text(_s(p['breed']).isEmpty?_s(p['species']):_s(p['breed']),overflow:TextOverflow.ellipsis,
+                  style:const TextStyle(fontSize:12,color:Color(0xFF667085))),
+              ])),
+            ]))).toList(),onChanged:(v)=>setState(()=>_selected=v))),
+        )),
+        Expanded(child:_PetTreatments(key:ValueKey(selected),petId:selected)),
       ]);
-    }), onRefresh: _reload);
+    })),
+  );
 }
 
 class _PetTreatments extends StatefulWidget {
@@ -239,6 +257,7 @@ class _PetTreatments extends StatefulWidget {
 }
 class _PetTreatmentsState extends State<_PetTreatments> {
   late Future<(List<Map<String,dynamic>>, Map<String,dynamic>?)> _future;
+  int _section = 0;
   @override void initState(){super.initState();_reload();}
   void _reload() => setState(() => _future = _load());
   Future<(List<Map<String,dynamic>>, Map<String,dynamic>?)> _load() async {
@@ -277,28 +296,124 @@ class _PetTreatmentsState extends State<_PetTreatments> {
           ]))));
     } catch (e) { if(mounted) _message(context,'Error consultando dosis: $e'); }
   }
+
+  Widget _selector() => Container(padding:const EdgeInsets.all(4),
+    decoration:BoxDecoration(color:const Color(0xFFE8F0FD),borderRadius:BorderRadius.circular(24)),
+    child:Row(children:[
+      Expanded(child:_sectionButton(0,Icons.medication_outlined,'Medicación activa')),
+      Expanded(child:_sectionButton(1,Icons.restaurant_outlined,'Plan alimentario')),
+    ]));
+
+  Widget _sectionButton(int value,IconData icon,String label) {
+    final selected=_section==value;
+    return InkWell(borderRadius:BorderRadius.circular(20),onTap:()=>setState(()=>_section=value),
+      child:AnimatedContainer(duration:const Duration(milliseconds:180),
+        padding:const EdgeInsets.symmetric(vertical:11,horizontal:8),
+        decoration:BoxDecoration(color:selected?const Color(0xFF1DB9A9):Colors.transparent,
+          borderRadius:BorderRadius.circular(20)),
+        child:Row(mainAxisAlignment:MainAxisAlignment.center,children:[
+          Icon(icon,size:18,color:selected?Colors.white:const Color(0xFF52606D)),
+          const SizedBox(width:6),
+          Flexible(child:Text(label,overflow:TextOverflow.ellipsis,style:TextStyle(fontWeight:FontWeight.w600,
+            color:selected?Colors.white:const Color(0xFF52606D)))),
+        ])));
+  }
+
+  Widget _reminders(bool enabled,String message,ValueChanged<bool> onChanged) => Container(
+    padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:const Color(0xFFEAF2FF),
+      borderRadius:BorderRadius.circular(22)),child:Row(children:[
+        const CircleAvatar(backgroundColor:Color(0xFFD4F3F0),
+          child:Icon(Icons.alarm_on_outlined,color:Color(0xFF139D91))),
+        const SizedBox(width:12),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Text('Recordatorios automáticos',style:TextStyle(fontWeight:FontWeight.w700,color:Color(0xFF24324A))),
+          const SizedBox(height:4),Text(message,style:const TextStyle(fontSize:13,color:Color(0xFF667085))),
+        ])),
+        Switch(value:enabled,activeTrackColor:const Color(0xFF1DB9A9),onChanged:onChanged),
+      ]));
+
+  Widget _medications(List<Map<String,dynamic>> plans) => Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    _reminders(plans.isNotEmpty&&plans.every((p)=>p['remindersEnabled']==true),
+      'Te avisaremos cuando sea momento de administrar cada dosis.',(value) async {
+        try { await Future.wait(plans.map((p)=>_repo.setMedicationReminders(_s(p['planId']),value))); _reload(); }
+        catch(e) { if(mounted) _message(context,'Error: $e'); }
+      }),
+    const SizedBox(height:24),
+    Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
+      const Text('Medicación activa',style:TextStyle(fontSize:21,fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+      Text('${plans.length} ${plans.length==1?'tratamiento':'tratamientos'}',style:const TextStyle(fontSize:12,color:Color(0xFF667085))),
+    ]),
+    const SizedBox(height:12),
+    if(plans.isEmpty) _empty(Icons.medication_outlined,'Sin planes de medicación activos'),
+    for(final plan in plans) Container(margin:const EdgeInsets.only(bottom:14),
+      decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22),
+        border:const Border(left:BorderSide(color:Color(0xFFF4A000),width:5))),
+      padding:const EdgeInsets.all(18),child:Column(children:[
+        Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const CircleAvatar(backgroundColor:Color(0xFFFFF5DC),
+            child:Icon(Icons.medication_outlined,color:Color(0xFFE39400))),
+          const SizedBox(width:12),
+          Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text(_s(plan['medicationName']).isEmpty?'Medicamento':_s(plan['medicationName']),
+              style:const TextStyle(fontSize:17,fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+            const SizedBox(height:4),Text('${_s(plan['startDate'])} — ${_s(plan['endDate'])}',
+              style:const TextStyle(fontSize:13,color:Color(0xFF667085))),
+          ])),_chip(_s(plan['status'])),
+        ]),
+        const SizedBox(height:16),
+        SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:()=>_doses(plan),
+          style:FilledButton.styleFrom(backgroundColor:const Color(0xFF1DB9A9),
+            shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),
+          icon:const Icon(Icons.schedule),label:const Text('Ver dosis programadas'))),
+      ])),
+  ]);
+
+  Widget _feeding(Map<String,dynamic>? food) => Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    _reminders(food?['remindersEnabled']==true,'Te avisaremos cuando sea momento de servir cada porción.',(value) async {
+      if(food==null)return;
+      try { await _repo.setFeedingReminders(_s(food['planId']),value); _reload(); }
+      catch(e) { if(mounted) _message(context,'Error: $e'); }
+    }),
+    const SizedBox(height:24),
+    const Text('Plan alimentario',style:TextStyle(fontSize:21,fontWeight:FontWeight.w700,color:Color(0xFF14213D))),
+    const SizedBox(height:12),
+    if(food==null) _empty(Icons.restaurant_outlined,'Sin plan alimentario activo'),
+    if(food!=null) Container(decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22),
+      border:const Border(left:BorderSide(color:Color(0xFFF4A000),width:5))),padding:const EdgeInsets.all(18),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Row(children:[const CircleAvatar(backgroundColor:Color(0xFFFFF1E5),
+          child:Icon(Icons.restaurant,color:Color(0xFFB76A00))),const SizedBox(width:12),
+          Expanded(child:Text(_s(food['foodName']).isEmpty?'Alimento indicado':_s(food['foodName']),
+            style:const TextStyle(fontSize:18,fontWeight:FontWeight.w700,color:Color(0xFF14213D)))),_chip('Activo')]),
+        if(_s(food['recommendations']).isNotEmpty) ...[const SizedBox(height:18),Container(width:double.infinity,
+          padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFFF3F6FC),
+            borderRadius:BorderRadius.circular(14)),child:Text(_s(food['recommendations']),
+              style:const TextStyle(height:1.4,color:Color(0xFF52606D))))],
+      ])),
+  ]);
+
+  Widget _chip(String status) { final active=status.toLowerCase()=='active'||status.toLowerCase()=='activo';
+    return Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:6),
+      decoration:BoxDecoration(color:active?const Color(0xFFDDF7F1):const Color(0xFFFFF2D6),
+        borderRadius:BorderRadius.circular(18)),child:Text(status.isEmpty?'Activo':status,
+          style:TextStyle(fontSize:12,fontWeight:FontWeight.w600,
+            color:active?const Color(0xFF12806F):const Color(0xFF9A6200)))); }
+
+  Widget _empty(IconData icon,String message) => Container(width:double.infinity,padding:const EdgeInsets.all(24),
+    decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22)),child:Column(children:[
+      Icon(icon,size:34,color:const Color(0xFF98A2B3)),const SizedBox(height:10),
+      Text(message,textAlign:TextAlign.center,style:const TextStyle(color:Color(0xFF667085))),
+    ]));
   @override Widget build(BuildContext context) => FutureBuilder(
     future: _future, builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
       if (snapshot.hasError) return _error(snapshot.error,_reload);
       final data = snapshot.data!;
       final med = data.$1, food = data.$2;
-      return ListView(padding: const EdgeInsets.all(16), children: [
-        const Text('Medicación', style: TextStyle(fontSize: 18,fontWeight: FontWeight.bold)),
-        if (med.isEmpty) const Padding(padding: EdgeInsets.all(12),child: Text('Sin planes de medicación')),
-        for (final m in med) _tile(_s(m['medicationName']),
-          '${_s(m['status'])} · ${_s(m['startDate'])} a ${_s(m['endDate'])}',
-          trailing: const Icon(Icons.chevron_right), onTap: () => _doses(m)),
-        const SizedBox(height: 24),
-        const Text('Alimentación', style: TextStyle(fontSize: 18,fontWeight: FontWeight.bold)),
-        if (food == null) const Padding(padding: EdgeInsets.all(12),child: Text('Sin plan de alimentación activo')),
-        if (food != null) _tile(_s(food['foodName']),
-          '${_s(food['recommendations'])}\nRecordatorios: ${food['remindersEnabled'] == true ? 'activados' : 'desactivados'}',
-          trailing: Switch(value: food['remindersEnabled'] == true, onChanged: (v) async {
-            try { await _repo.setFeedingReminders(_s(food['planId']), v); _reload(); }
-            catch(e) { if (mounted) _message(context,'Error: $e'); }
-          })),
-      ]);
+      return RefreshIndicator(onRefresh:() async=>_reload(),child:ListView(
+        physics:const AlwaysScrollableScrollPhysics(),padding:const EdgeInsets.fromLTRB(16,4,16,24),children:[
+          _selector(),const SizedBox(height:20),if(_section==0)_medications(med)else _feeding(food),
+        ]));
     });
 }
 
