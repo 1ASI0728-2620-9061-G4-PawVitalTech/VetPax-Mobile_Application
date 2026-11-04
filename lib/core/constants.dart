@@ -5,11 +5,11 @@
 // En iOS Simulator, localhost se refiere al Mac anfitrión.
 const String BASE_URL = String.fromEnvironment(
   'VETPAX_API_URL',
-  defaultValue: 'http://localhost:5139/api/v1',
+  defaultValue: 'https://vetpax-api-production.up.railway.app/api/v1',
 );
 const String KEYCLOAK_URL = String.fromEnvironment(
   'VETPAX_KEYCLOAK_URL',
-  defaultValue: 'http://localhost:8080',
+  defaultValue: 'https://keycloak-production-91a6.up.railway.app',
 );
 const String KEYCLOAK_REALM = String.fromEnvironment(
   'VETPAX_KEYCLOAK_REALM', defaultValue: 'vetpax',
