@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:vetpax_frontend/core/di/injector.dart';
 import 'package:vetpax_frontend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:vetpax_frontend/features/vetpax/data/vetpax_repository.dart';
+export '../pets/pets_tab.dart' show PetsTab;
 
 final VetPaxRepository _repo = injector<VetPaxRepository>();
 const _blue = Color(0xFF2563EB);
@@ -32,81 +33,6 @@ Widget _error(Object? err, VoidCallback reload) => Center(child: Padding(
 ));
 void _message(BuildContext context, String text) => ScaffoldMessenger.of(context)
     .showSnackBar(SnackBar(content: Text(text)));
-
-class PetsTab extends StatefulWidget {
-  const PetsTab({super.key});
-  @override State<PetsTab> createState() => _PetsTabState();
-}
-class _PetsTabState extends State<PetsTab> {
-  late Future<List<Map<String, dynamic>>> _future;
-  @override void initState() { super.initState(); _reload(); }
-  void _reload() => setState(() => _future = _repo.myPets());
-  Future<void> _createPet() async {
-    final name = TextEditingController();
-    final breed = TextEditingController();
-    var species = 'Dog';
-    var sex = 'Male';
-    var birth = DateTime(2022, 1, 1);
-    if (!mounted) return;
-    final ok = await showDialog<bool>(context: context, builder: (ctx) => StatefulBuilder(
-      builder: (ctx, redraw) => AlertDialog(title: const Text('Registrar mascota'),
-      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(controller: name, decoration: const InputDecoration(labelText: 'Nombre')),
-        TextField(controller: breed, decoration: const InputDecoration(labelText: 'Raza (opcional)')),
-        DropdownButtonFormField<String>(initialValue: species, decoration: const InputDecoration(labelText: 'Especie'),
-          items: ['Dog','Cat'].map((v) => DropdownMenuItem(value: v,child: Text(v))).toList(),
-          onChanged: (v) => redraw(() => species = v ?? species)),
-        DropdownButtonFormField<String>(initialValue: sex, decoration: const InputDecoration(labelText: 'Sexo'),
-          items: ['Male','Female'].map((v) => DropdownMenuItem(value: v,child: Text(v))).toList(),
-          onChanged: (v) => redraw(() => sex = v ?? sex)),
-        TextButton(onPressed: () async {
-          final d = await showDatePicker(context: ctx, firstDate: DateTime(1990), lastDate: DateTime.now(), initialDate: birth);
-          if (d != null) redraw(() => birth = d);
-        }, child: Text('Nacimiento: ${_date(birth)}')),
-      ])), actions: [TextButton(onPressed: ()=>Navigator.pop(ctx,false),child: const Text('Cancelar')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar'))]),
-    ));
-    if (ok != true) return;
-    try {
-      await _repo.createPet({'name': name.text.trim(), 'species': species,
-        'breed': breed.text.trim().isEmpty ? null : breed.text.trim(),
-        'birthDate': _date(birth), 'sex': sex});
-      if (mounted) { _message(context,'Mascota registrada'); _reload(); }
-    } catch (e) { if (mounted) _message(context,'Error: $e'); }
-    name.dispose(); breed.dispose();
-  }
-  Future<void> _viewHistory(Map<String,dynamic> pet) async {
-    final id = _s(pet['petId']);
-    try {
-      final history = await _repo.clinicalHistory(id);
-      if (!mounted) return;
-      final events = history['attentions'] is List ? history['attentions'] as List : <dynamic>[];
-      await showDialog(context: context, builder: (ctx) => AlertDialog(
-        title: Text('Historial: ${_s(pet['name'])}'),
-        content: SizedBox(width: double.maxFinite, child: events.isEmpty
-          ? const Text('Todavía no hay atenciones clínicas')
-          : ListView(shrinkWrap: true, children: events.map((e) {
-              final row = Map<String,dynamic>.from(e as Map);
-              return ListTile(title: Text(_s(row['reason'])),
-                subtitle: Text('${_s(row['attentionDate'])}\n${_s(row['diagnosis'])}'));
-            }).toList())),
-        actions: [TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text('Cerrar'))]));
-    } catch (e) { if (mounted) _message(context,'Error consultando historial: $e'); }
-  }
-  @override Widget build(BuildContext context) => _page('Mis mascotas', FutureBuilder(
-    future: _future, builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-      if (snapshot.hasError) return _error(snapshot.error, _reload);
-      final pets = snapshot.data ?? [];
-      return ListView(padding: const EdgeInsets.all(16), children: [
-        FilledButton.icon(onPressed: _createPet, icon: const Icon(Icons.add), label: const Text('Registrar mascota')),
-        const SizedBox(height: 12),
-        if (pets.isEmpty) const Padding(padding: EdgeInsets.all(20), child: Text('Registra tu primera mascota.')),
-        for (final pet in pets) _tile(_s(pet['name']), '${_s(pet['species'])} · ${_s(pet['breed'])}',
-          trailing: const Icon(Icons.chevron_right), onTap: () => _viewHistory(pet)),
-      ]);
-    }), onRefresh: _reload);
-}
 
 class ClinicsTab extends StatefulWidget {
   const ClinicsTab({super.key});
