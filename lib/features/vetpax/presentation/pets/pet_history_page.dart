@@ -15,7 +15,7 @@ class _PetHistoryPageState extends State<PetHistoryPage> {
   late Future<Map<String, dynamic>> _future;
   @override
   void initState() { super.initState(); _reload(); }
-  void _reload() => setState(() => _future = injector<VetPaxRepository>().clinicalHistory(widget.petId));
+  void _reload() => setState(() { _future = injector<VetPaxRepository>().clinicalHistory(widget.petId); });
 
   @override
   Widget build(BuildContext context) {

@@ -21,7 +21,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
     _reload();
   }
 
-  void _reload() => setState(() => _future = injector<VetPaxRepository>().pet(widget.petId));
+  void _reload() => setState(() { _future = injector<VetPaxRepository>().pet(widget.petId); });
 
   @override
   Widget build(BuildContext context) {

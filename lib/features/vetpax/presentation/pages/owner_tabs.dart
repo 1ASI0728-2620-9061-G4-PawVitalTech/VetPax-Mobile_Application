@@ -41,7 +41,7 @@ class ClinicsTab extends StatefulWidget {
 class _ClinicsTabState extends State<ClinicsTab> {
   late Future<List<Map<String,dynamic>>> _future;
   @override void initState() {super.initState(); _reload();}
-  void _reload() => setState(() => _future = _repo.clinics());
+  void _reload() => setState(() { _future = _repo.clinics(); });
   Future<void> _clinic(Map<String,dynamic> clinic) async {
     final clinicId = _s(clinic['clinicId']);
     try {
@@ -140,7 +140,7 @@ class _TreatmentsTabState extends State<TreatmentsTab> {
   late Future<List<Map<String,dynamic>>> _pets;
   String? _selected;
   @override void initState(){super.initState(); _reload();}
-  void _reload() => setState(() => _pets = _repo.myPets());
+  void _reload() => setState(() { _pets = _repo.myPets(); });
   @override Widget build(BuildContext context) => _page('Cuidados', FutureBuilder(
     future: _pets, builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
@@ -152,7 +152,8 @@ class _TreatmentsTabState extends State<TreatmentsTab> {
         Padding(padding: const EdgeInsets.all(16), child: DropdownButtonFormField<String>(
           initialValue: selected, decoration: const InputDecoration(labelText:'Mascota', border: OutlineInputBorder()),
           items: pets.map((p) => DropdownMenuItem(value:_s(p['petId']),child: Text(_s(p['name'])))).toList(),
-          onChanged: (v) => setState(() => _selected = v))),
+          onChanged: (v) => setState(() { _selected = v; })),
+        ),
         Expanded(child: _PetTreatments(key: ValueKey(selected), petId: selected)),
       ]);
     }), onRefresh: _reload);
@@ -166,7 +167,7 @@ class _PetTreatments extends StatefulWidget {
 class _PetTreatmentsState extends State<_PetTreatments> {
   late Future<(List<Map<String,dynamic>>, Map<String,dynamic>?)> _future;
   @override void initState(){super.initState();_reload();}
-  void _reload() => setState(() => _future = _load());
+  void _reload() => setState(() { _future = _load(); });
   Future<(List<Map<String,dynamic>>, Map<String,dynamic>?)> _load() async {
     final med = await _repo.medicationPlans(widget.petId);
     final food = await _repo.activeFeedingPlan(widget.petId);
@@ -235,7 +236,7 @@ class AdherenceTab extends StatefulWidget {
 class _AdherenceTabState extends State<AdherenceTab> {
   late Future<Map<String,dynamic>> _future;
   @override void initState(){super.initState();_reload();}
-  void _reload() => setState(() => _future = _repo.adherence());
+  void _reload() => setState(() { _future = _repo.adherence(); });
   @override Widget build(BuildContext context) => _page('Mi constancia', FutureBuilder(
     future: _future, builder: (context,snapshot) {
       if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
@@ -265,7 +266,7 @@ class ProfileTab extends StatefulWidget {
 class _ProfileTabState extends State<ProfileTab> {
   late Future<Map<String,dynamic>> _future;
   @override void initState(){super.initState();_reload();}
-  void _reload() => setState(() => _future = _repo.me());
+  void _reload() => setState(() { _future = _repo.me(); });
   @override Widget build(BuildContext context) => _page('Mi perfil', FutureBuilder(
     future: _future, builder: (context,snapshot) {
       if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());

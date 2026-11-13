@@ -21,11 +21,11 @@ class _PetsTabState extends State<PetsTab> {
     _reload();
   }
 
-  void _reload() => setState(() => _petsFuture = _repo.myPets());
+  void _reload() => setState(() { _petsFuture = _repo.myPets(); });
 
   Future<void> _refresh() async {
     final future = _repo.myPets();
-    setState(() => _petsFuture = future);
+    setState(() { _petsFuture = future; });
     try { await future; } catch (_) { /* FutureBuilder muestra el error. */ }
   }
 
