@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+export '../profile/profile_tab.dart' show ProfileTab;
 import 'package:vetpax_frontend/core/di/injector.dart';
 import 'package:vetpax_frontend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:vetpax_frontend/features/vetpax/data/vetpax_repository.dart';
@@ -328,38 +329,6 @@ class _AdherenceTabState extends State<AdherenceTab> {
         if (!ready) const Padding(padding: EdgeInsets.all(20), child:
           Text('Necesitas más actividades registradas para recibir una evaluación.', textAlign: TextAlign.center)),
         for (final award in awards) _tile('Reconocimiento', _s(award)),
-      ]);
-    }), onRefresh: _reload);
-}
-
-class ProfileTab extends StatefulWidget {
-  const ProfileTab({super.key});
-  @override State<ProfileTab> createState() => _ProfileTabState();
-}
-class _ProfileTabState extends State<ProfileTab> {
-  late Future<Map<String,dynamic>> _future;
-  @override void initState(){super.initState();_reload();}
-  void _reload() => setState(() => _future = _repo.me());
-  @override Widget build(BuildContext context) => _page('Mi perfil', FutureBuilder(
-    future: _future, builder: (context,snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-      if (snapshot.hasError) return _error(snapshot.error,_reload);
-      final user = snapshot.data!;
-      return ListView(padding: const EdgeInsets.all(20), children: [
-        const Center(child: CircleAvatar(radius: 38, backgroundColor: Color(0xFFEFF6FF),
-          child: Icon(Icons.person, color: _blue, size: 42))),
-        const SizedBox(height: 12),
-        Center(child: Text(_s(user['email']), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-        const SizedBox(height: 8),
-        Center(child: Text('Rol: ${_s(user['role'])}', style: const TextStyle(color: _gray))),
-        const SizedBox(height: 24),
-        _tile('ID de propietario', _s(user['userId'])),
-        const SizedBox(height: 20),
-        FilledButton.icon(icon: const Icon(Icons.logout), label: const Text('Cerrar sesión'),
-          style: FilledButton.styleFrom(backgroundColor: _blue), onPressed: () async {
-            await injector<AuthRepository>().logout();
-            if (context.mounted) Navigator.pushNamedAndRemoveUntil(context,'/login',(route)=>false);
-          }),
       ]);
     }), onRefresh: _reload);
 }
