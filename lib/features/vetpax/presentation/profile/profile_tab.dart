@@ -39,10 +39,24 @@ class _ProfileTabState extends State<ProfileTab> {
     return (user: user, petCount: petCount);
   }
 
-  void _refresh() {
-    setState(() {
-      _profile = _load();
-    });
+  Future<void> _refresh() async {
+    // Conservar los datos visibles mientras se consulta el servidor.
+    // Un error temporal no debe borrar el perfil previamente cargado.
+    try {
+      final updated = await _load();
+      if (!mounted) return;
+      setState(() {
+        _profile = Future.value(updated);
+      });
+    } catch (error) {
+      debugPrint('No se pudo actualizar el perfil: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(
+          'No se pudo actualizar el perfil. Verifica tu conexión o sesión.',
+        )),
+      );
+    }
   }
 
   Future<void> _signOut() async {
@@ -66,10 +80,14 @@ class _ProfileTabState extends State<ProfileTab> {
     if (confirmed != true || !mounted || _signingOut) return;
     setState(() { _signingOut = true; });
     try {
+      // Capturar el navegador principal antes del await: las pestañas usan
+      // su propio navegador interno, que no conoce las rutas de la app.
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
       await injector<AuthRepository>().logout();
       if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-    } catch (_) {
+      rootNavigator.pushNamedAndRemoveUntil('/login', (route) => false);
+    } catch (error) {
+      debugPrint('Error al cerrar sesión: $error');
       if (!mounted) return;
       setState(() { _signingOut = false; });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,11 +132,7 @@ class _ProfileTabState extends State<ProfileTab> {
         final name = profileDisplayName(user);
         final role = profileRoleLabel(user['role']);
         return RefreshIndicator(
-          onRefresh: () async {
-            final next = _load();
-            setState(() { _profile = next; });
-            try { await next; } catch (_) { /* FutureBuilder muestra el error. */ }
-          },
+          onRefresh: _refresh,
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 22, 16, 30), children: [
             _panel(child: Column(children: [
               const CircleAvatar(radius: 43, backgroundColor: Color(0xFFE7E8FF),
